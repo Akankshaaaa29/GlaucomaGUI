@@ -49,7 +49,10 @@ if uploaded_file is not None:
         # Build and Load Model
         input_layer = Input((SIZE_X, SIZE_Y, 3))
         model = custom()
-        model.load_weights('custom_aug.h5')
+        if option=='Fundus':
+            model.load_weights('custom_aug.h5')
+        else:
+            model.load_weights('custom_oct.h5')
 
             # Perform Prediction
         st.session_state.model1_output = model.predict(uploaded_image)
