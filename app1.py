@@ -4,7 +4,7 @@ import numpy as np
 from tensorflow.keras.layers import Input
 import cv2
 from io import BytesIO
-from preprocess import preprocess_image
+
 SIZE_X = 224  # Set your desired size
 SIZE_Y = 224  # Set your desired size
  
