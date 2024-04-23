@@ -7,5 +7,4 @@ streamlit==1.17.0
 numpy
 tensorflow
 scipy==1.5.3
-tensorboard==2.3.0
-tensorboard-plugin-wit==1.7.0
+
