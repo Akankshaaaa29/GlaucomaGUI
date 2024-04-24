@@ -12,7 +12,7 @@ if "model1_computed" not in st.session_state:
     st.session_state.model1_computed = False
 
 st.title("Glaucoma prediction using LWG-Net")
-st.write("Upload fundus image to predict glaucoma.")
+st.write("Upload fundus or oct image to predict glaucoma.")
 
 # File Upload Section
 option = st.selectbox('Choose the type of Image',('Fundus', 'OCT'))
