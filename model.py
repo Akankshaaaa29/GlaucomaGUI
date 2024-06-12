@@ -1,5 +1,4 @@
-# source https://naomi-fridman.medium.com/multi-class-image-segmentation-a5cc671e647a
-# import system libs
+
 import os
 import time
 import random
@@ -40,7 +39,7 @@ from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
-
+from tensorflow.keras.layers.experimental import preprocessing
 
 # # import system libs
 import os
@@ -83,7 +82,7 @@ from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
 from tensorflow.keras.optimizers import *
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
-
+from tensorflow.keras.layers.experimental import preprocessing
 
 import os
 import glob
@@ -105,72 +104,129 @@ warnings.filterwarnings("ignore")
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Conv2D, BatchNormalization, Activation, MaxPooling2D, SeparableConv2D, Add, Flatten, Dropout, Dense
 
-def custom(input_shape=(224, 224, 3), num_classes=1):
-    inputs = Input(shape=input_shape)
-    x = Conv2D(64, (3, 3), activation='relu', padding='same')(inputs)
-    x = BatchNormalization()(x)
-    x = Conv2D(64, (1, 1), activation='relu', padding='same')(x)
-    x = BatchNormalization()(x)
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate, Dropout, PReLU, Add, Multiply, Activation
+from tensorflow.keras.models import Model
 
-    x1 = SeparableConv2D(128, (3, 3), activation='relu', padding='same')(x)
-    x1 = BatchNormalization()(x1)
-    x1 = MaxPooling2D((2, 2), padding='same')(x1)
-    x1 = Activation('relu')(x1)
 
-    x2 = Conv2D(256, (3, 3), activation='relu', padding='same')(x)
-    x2 = BatchNormalization()(x2)
-    x2 = MaxPooling2D((2, 2), padding='same')(x2)
-    x2 = Activation('relu')(x2)
-    x2 = Conv2D(128, (1, 1), padding='same')(x2)
-    x2 = BatchNormalization()(x2)
+def residual_block(x, filters, kernel_size=(3, 3), padding='same', kernel_initializer='he_normal'):
+    res = Conv2D(filters, kernel_size, padding=padding, kernel_initializer=kernel_initializer)(x)
+    res = PReLU()(res)
+    res = Conv2D(filters, kernel_size, padding=padding, kernel_initializer=kernel_initializer)(res)
+    shortcut = Conv2D(filters, (1, 1), padding=padding, kernel_initializer=kernel_initializer)(x)
+    res = Add()([res, shortcut])
+    res = PReLU()(res)
+    return res
 
-    x = Add()([x1, x2])
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
 
-    x1 = SeparableConv2D(256, (3, 3), activation='relu', padding='same')(x)
-    x1 = BatchNormalization()(x1)
-    x1 = MaxPooling2D((2, 2), padding='same')(x1)
-    x1 = Activation('relu')(x1)
+def attention_block(x, g, filters):
+    theta_x = Conv2D(filters, (2, 2), strides=(2, 2), padding='same')(x)
+    phi_g = Conv2D(filters, (1, 1), padding='same')(g)
+    add_xg = Add()([theta_x, phi_g])
+    act_xg = PReLU()(add_xg)
+    psi = Conv2D(1, (1, 1), padding='same')(act_xg)
+    sigmoid_xg = Activation('sigmoid')(psi)
+    upsample_psi = UpSampling2D(size=(2, 2))(sigmoid_xg)
+    upsample_psi = Conv2D(filters, (1, 1), padding='same')(upsample_psi)
+    y = Multiply()([x, upsample_psi])
+    result = Conv2D(filters, (1, 1), padding='same')(y)
+    result = PReLU()(result)
+    return result
 
-    x2 = Conv2D(512, (3, 3), activation='relu', padding='same')(x)
-    x2 = BatchNormalization()(x2)
-    x2 = MaxPooling2D((2, 2), padding='same')(x2)
-    x2 = Activation('relu')(x2)
-    x2 = Conv2D(256, (1, 1), padding='same')(x2)
-    x2 = BatchNormalization()(x2)
 
-    x = Add()([x1, x2])
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+def build_unet_plusresatten(inputs, ker_init, dropout):
+    conv1 = residual_block(inputs, 32, kernel_initializer=ker_init)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
 
-    x1 = SeparableConv2D(512, (3, 3), activation='relu', padding='same')(x)
-    x1 = BatchNormalization()(x1)
-    x1 = MaxPooling2D((2, 2), padding='same')(x1)
-    x1 = Activation('relu')(x1)
+    conv2 = residual_block(pool1, 64, kernel_initializer=ker_init)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
 
-    x2 = Conv2D(1024, (3, 3), activation='relu', padding='same')(x)
-    x2 = BatchNormalization()(x2)
-    x2 = MaxPooling2D((2, 2), padding='same')(x2)
-    x2 = Activation('relu')(x2)
-    x2 = Conv2D(512, (1, 1), padding='same')(x2)
-    x2 = BatchNormalization()(x2)
+    conv3 = residual_block(pool2, 128, kernel_initializer=ker_init)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
 
-    x = Add()([x1, x2])
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
+    conv4 = residual_block(pool3, 256, kernel_initializer=ker_init)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
 
-    x = Conv2D(128, (3, 3), padding='same')(x)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-    x = Conv2D(128, (3, 3), padding='same')(x)
-    x = BatchNormalization()(x)
-    x = Activation('relu')(x)
-    x = Flatten()(x)
-    x = Dropout(0.5)(x)
-    outputs = Dense(num_classes, activation='sigmoid')(x)
+    conv5 = residual_block(pool4, 512, kernel_initializer=ker_init)
 
-    model = Model(inputs, outputs)
-    return model
+    up6 = concatenate([UpSampling2D(size=(2, 2))(conv5), attention_block(conv4, conv5, 256)], axis=3)
+    conv6 = residual_block(up6, 256, kernel_initializer=ker_init)
+
+    up7 = concatenate([UpSampling2D(size=(2, 2))(conv6), attention_block(conv3, conv6, 128)], axis=3)
+    conv7 = residual_block(up7, 128, kernel_initializer=ker_init)
+
+    up8 = concatenate([UpSampling2D(size=(2, 2))(conv7), attention_block(conv2, conv7, 64)], axis=3)
+    conv8 = residual_block(up8, 64, kernel_initializer=ker_init)
+
+    up9 = concatenate([UpSampling2D(size=(2, 2))(conv8), attention_block(conv1, conv8, 32)], axis=3)
+    conv9 = residual_block(up9, 32, kernel_initializer=ker_init)
+
+    conv10 = Conv2D(2, (1, 1), activation='sigmoid')(conv9)
+
+    return Model(inputs=inputs, outputs=conv10)
+
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, concatenate, Dropout, PReLU, Add, Multiply, Activation
+from tensorflow.keras.models import Model
+
+
+def residual_block(x, filters, kernel_size=(3, 3), padding='same', kernel_initializer='he_normal'):
+    res = Conv2D(filters, kernel_size, padding=padding, kernel_initializer=kernel_initializer)(x)
+    res = PReLU()(res)
+    res = Conv2D(filters, kernel_size, padding=padding, kernel_initializer=kernel_initializer)(res)
+    shortcut = Conv2D(filters, (1, 1), padding=padding, kernel_initializer=kernel_initializer)(x)
+    res = Add()([res, shortcut])
+    res = PReLU()(res)
+    return res
+
+
+def attention_block(x, g, filters):
+    theta_x = Conv2D(filters, (2, 2), strides=(2, 2), padding='same')(x)
+    phi_g = Conv2D(filters, (1, 1), padding='same')(g)
+    add_xg = Add()([theta_x, phi_g])
+    act_xg = PReLU()(add_xg)
+    psi = Conv2D(1, (1, 1), padding='same')(act_xg)
+    sigmoid_xg = Activation('sigmoid')(psi)
+    upsample_psi = UpSampling2D(size=(2, 2))(sigmoid_xg)
+    upsample_psi = Conv2D(filters, (1, 1), padding='same')(upsample_psi)
+    y = Multiply()([x, upsample_psi])
+    result = Conv2D(filters, (1, 1), padding='same')(y)
+    result = PReLU()(result)
+    return result
+
+
+def build_unet_plusresattencup(inputs, ker_init, dropout):
+    conv1 = residual_block(inputs, 32, kernel_initializer=ker_init)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
+
+    conv2 = residual_block(pool1, 64, kernel_initializer=ker_init)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
+
+    conv3 = residual_block(pool2, 128, kernel_initializer=ker_init)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
+
+    conv4 = residual_block(pool3, 256, kernel_initializer=ker_init)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
+
+    conv5 = residual_block(pool4, 512, kernel_initializer=ker_init)
+
+    up6 = concatenate([UpSampling2D(size=(2, 2))(conv5), attention_block(conv4, conv5, 256)], axis=3)
+    conv6 = residual_block(up6, 256, kernel_initializer=ker_init)
+
+    up7 = concatenate([UpSampling2D(size=(2, 2))(conv6), attention_block(conv3, conv6, 128)], axis=3)
+    conv7 = residual_block(up7, 128, kernel_initializer=ker_init)
+
+    up8 = concatenate([UpSampling2D(size=(2, 2))(conv7), attention_block(conv2, conv7, 64)], axis=3)
+    conv8 = residual_block(up8, 64, kernel_initializer=ker_init)
+
+    up9 = concatenate([UpSampling2D(size=(2, 2))(conv8), attention_block(conv1, conv8, 32)], axis=3)
+    conv9 = residual_block(up9, 32, kernel_initializer=ker_init)
+
+    conv10 = Conv2D(2, (1, 1), activation='sigmoid')(conv9)
+
+    return Model(inputs=inputs, outputs=conv10)
+
+
+
+
+
 
 
