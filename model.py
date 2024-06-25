@@ -1,24 +1,22 @@
+# source https://naomi-fridman.medium.com/multi-class-image-segmentation-a5cc671e647a
+# import system libs
 import os
 import time
 import random
 import pathlib
 import itertools
 from glob import glob
-from tqdm import tqdm_notebook, tnrange
+
 
 # import data handling tools
-import cv2
+
 import numpy as np
 import pandas as pd
-import seaborn as sns
-sns.set_style('darkgrid')
+
+
 import matplotlib.pyplot as plt
-%matplotlib inline
-from skimage.color import rgb2gray
-from skimage.morphology import label
-from skimage.transform import resize
-from sklearn.model_selection import train_test_split
-from skimage.io import imread, imshow, concatenate_images
+
+
 
 # import Deep learning Libraries
 import tensorflow as tf
@@ -51,21 +49,17 @@ import random
 import pathlib
 import itertools
 from glob import glob
-from tqdm import tqdm_notebook, tnrange
+
 
 # import data handling tools
-import cv2
+
 import numpy as np
 import pandas as pd
-import seaborn as sns
-sns.set_style('darkgrid')
+
+
 import matplotlib.pyplot as plt
-%matplotlib inline
-from skimage.color import rgb2gray
-from skimage.morphology import label
-from skimage.transform import resize
-from sklearn.model_selection import train_test_split
-from skimage.io import imread, imshow, concatenate_images
+
+
 
 # import Deep learning Libraries
 import tensorflow as tf
@@ -93,7 +87,7 @@ from tensorflow.keras.layers.experimental import preprocessing
 
 import os
 import glob
-import cv2
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
