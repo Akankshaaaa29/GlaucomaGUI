@@ -5,7 +5,7 @@ description = ""
 authors = [""]
 
 [tool.poetry.dependencies]
-python = "^3.8"  # Specify the Python version compatible with TensorFlow
+python = "3.7"
 streamlit = ">=1.2.0"
 tensorflow = ">=2.0"
 scikit-learn = ">=0.20.0"
